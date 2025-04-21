@@ -9,9 +9,8 @@ import {
 export function setupUI(): void {
   saveFeedItems();
   addNavigationButtons();
-  console.log("[setupUI] addNavigationButtons success");
+
   updateButtonStates();
-  console.log("[setupUI] updateButtonStates success");
 }
 
 // Add navigation buttons below "换一换" button
@@ -19,7 +18,6 @@ export function addNavigationButtons(): void {
   // Find the "换一换" button
   const refreshButton = findRefreshButton();
   if (!refreshButton) {
-    console.log("Could not find the '换一换' button");
     setTimeout(addNavigationButtons, 1000); // Try again later
     return;
   }
@@ -30,7 +28,6 @@ export function addNavigationButtons(): void {
   // Get the container where the refresh button is positioned
   const refreshParent = refreshButton.parentElement;
   if (!refreshParent || !refreshParent.parentElement) {
-    console.log("Could not find proper parent elements for positioning");
     return;
   }
 
@@ -86,6 +83,8 @@ export function addNavigationButtons(): void {
     // Wait a moment for the new content to load
     setTimeout(saveFeedItems, 1000);
   });
+
+  updateButtonStates();
 }
 
 // Find the "换一换" button in the DOM

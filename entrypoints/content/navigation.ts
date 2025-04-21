@@ -8,7 +8,7 @@ export async function navigateToPreviousFeed(): Promise<void> {
 
   const historyItem = await navigateToIndex(history.currentIndex - 1);
   if (historyItem) {
-    displayFeed(historyItem);
+    replaceFeeds(historyItem);
     updateButtonStates();
   }
 }
@@ -20,18 +20,17 @@ export async function navigateToNextFeed(): Promise<void> {
 
   const historyItem = await navigateToIndex(history.currentIndex + 1);
   if (historyItem) {
-    displayFeed(historyItem);
+    replaceFeeds(historyItem);
     updateButtonStates();
   }
 }
 
 // Display feed items from history
-export function displayFeed(historyItem: FeedHistoryItem): void {
+export function replaceFeeds(historyItem: FeedHistoryItem): void {
   // Find the container for feed cards
   const feedCardsContainer =
     document.querySelector(".feed-card")?.parentElement;
   if (!feedCardsContainer) {
-    console.error("Could not find feed cards container");
     return;
   }
 
@@ -39,14 +38,29 @@ export function displayFeed(historyItem: FeedHistoryItem): void {
   const tempContainer = document.createElement("div");
   tempContainer.innerHTML = historyItem.html;
 
-  // Clear existing feed cards
+  // Get the existing cards and new cards from history
   const existingCards = feedCardsContainer.querySelectorAll(".feed-card");
-  existingCards.forEach((card) => card.remove());
+  const historyCards = Array.from(tempContainer.querySelectorAll(".feed-card"));
 
-  // Add the history feed cards to the container
-  Array.from(tempContainer.children).forEach((child) => {
-    feedCardsContainer.appendChild(child);
-  });
+  // Replace existing cards with history cards (assuming same count)
+  if (existingCards.length > 0 && historyCards.length > 0) {
+    // Simple 1:1 replacement of cards
+    for (let i = 0; i < existingCards.length; i++) {
+      if (historyCards[i]) {
+        feedCardsContainer.replaceChild(historyCards[i], existingCards[i]);
+      }
+    }
+  } else {
+    // Fallback to the original method if no cards found
+
+    // Clear existing feed cards
+    existingCards.forEach((card) => card.remove());
+
+    // Add the history feed cards to the container
+    while (tempContainer.firstChild) {
+      feedCardsContainer.appendChild(tempContainer.firstChild);
+    }
+  }
 }
 
 // Update navigation button states
