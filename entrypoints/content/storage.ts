@@ -23,6 +23,7 @@ export async function setupStorage(): Promise<void> {
  */
 export async function saveFeedItems(): Promise<void> {
   const feedCards = document.querySelectorAll(".feed-card");
+  console.log(`[saveFeedItems] Found ${feedCards.length} feed cards`);
   if (feedCards.length === 0) return;
 
   // Create a container element to store the feed HTML
@@ -43,6 +44,9 @@ export async function saveFeedItems(): Promise<void> {
 
   // Get current history
   const history = await feedHistoryStorage.getValue();
+  console.log(
+    `[saveFeedItems] Current history has ${history.items.length} items, index: ${history.currentIndex}`
+  );
 
   // Simply use existing items array without checking current index
   const newItems = [...history.items];
@@ -59,6 +63,12 @@ export async function saveFeedItems(): Promise<void> {
     items: limitedItems,
     currentIndex: limitedItems.length - 1,
   });
+
+  console.log(
+    `[saveFeedItems] Updated history: ${
+      limitedItems.length
+    } items, new index: ${limitedItems.length - 1}`
+  );
 }
 
 /**
@@ -75,9 +85,14 @@ export async function getFeedHistory(): Promise<FeedHistory> {
 export async function navigateToIndex(
   index: number
 ): Promise<FeedHistoryItem | null> {
+  console.log(`[navigateToIndex] Attempting to navigate to index ${index}`);
   const history = await feedHistoryStorage.getValue();
+  console.log(
+    `[navigateToIndex] Current history has ${history.items.length} items, current index: ${history.currentIndex}`
+  );
 
   if (index < 0 || index >= history.items.length) {
+    console.log(`[navigateToIndex] Invalid index ${index} - out of bounds`);
     return null;
   }
 
@@ -86,5 +101,8 @@ export async function navigateToIndex(
     currentIndex: index,
   });
 
+  console.log(
+    `[navigateToIndex] Successfully navigated to index ${index}, item ID: ${history.items[index].id}`
+  );
   return history.items[index];
 }
