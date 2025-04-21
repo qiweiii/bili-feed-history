@@ -9,6 +9,9 @@ import {
 export function setupUI(): void {
   saveFeedItems();
   addNavigationButtons();
+  console.log("[setupUI] addNavigationButtons success");
+  updateButtonStates();
+  console.log("[setupUI] updateButtonStates success");
 }
 
 // Add navigation buttons below "换一换" button
@@ -70,9 +73,6 @@ export function addNavigationButtons(): void {
     // Wait a moment for the new content to load
     setTimeout(saveFeedItems, 1000);
   });
-
-  // Update button states
-  updateButtonStates();
 }
 
 // Find the "换一换" button in the DOM
