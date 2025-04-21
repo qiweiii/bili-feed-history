@@ -4,13 +4,16 @@ import {
   navigateToNextFeed,
   updateButtonStates,
 } from "./navigation";
+import { FeedHistory } from "./types";
 
 // Set up all UI components
 export function setupUI(): void {
   saveFeedItems();
   addNavigationButtons();
 
-  updateButtonStates();
+  storage.watch<FeedHistory>("local:biliFeedHistory", (newValue, oldValue) => {
+    updateButtonStates();
+  });
 }
 
 // Add navigation buttons below "换一换" button

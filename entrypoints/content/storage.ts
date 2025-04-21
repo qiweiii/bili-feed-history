@@ -1,3 +1,4 @@
+import { updateButtonStates } from "./navigation";
 import type { FeedHistory, FeedHistoryItem } from "./types";
 
 // Define a storage item with proper namespace

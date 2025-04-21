@@ -8,12 +8,14 @@ export default defineContentScript({
     console.log("Bilibili Feed History extension loaded");
 
     // Initialize everything
-    setupStorage().then(() => {
-      // Setup UI components and save initial feed
-      setupUI();
-
-      // Watch for DOM changes
-      setupMutationObserver();
-    });
+    setupStorage()
+      .then(() => {
+        // Setup UI components and save initial feed
+        setupUI();
+      })
+      .then(() => {
+        // Watch for DOM changes
+        setupMutationObserver();
+      });
   },
 });
