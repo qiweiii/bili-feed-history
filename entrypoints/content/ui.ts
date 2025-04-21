@@ -77,11 +77,35 @@ export function addNavigationButtons(): void {
 
 // Find the "换一换" button in the DOM
 export function findRefreshButton(): HTMLButtonElement | null {
-  // Look for button elements with text "换一换"
-  const buttons = Array.from(document.querySelectorAll("button"));
-  return (
-    (buttons.find((button) =>
+  // Method 1: Look for button elements with span containing "换一换"
+  let button = Array.from(document.querySelectorAll("button")).find(
+    (button) => {
+      const span = button.querySelector("span");
+      return span && span.textContent?.includes("换一换");
+    }
+  ) as HTMLButtonElement | null;
+
+  if (button) return button;
+
+  // Method 2: Look for buttons with specific class that might contain the refresh button
+  button = document.querySelector(
+    "button.primary-btn.roll-btn"
+  ) as HTMLButtonElement | null;
+  if (button) return button;
+
+  // Method 3: Fallback to any button with SVG and span with "换一换" text
+  button = Array.from(document.querySelectorAll("button")).find((button) => {
+    const hasSvg = button.querySelector("svg");
+    const span = button.querySelector("span");
+    return hasSvg && span && span.textContent?.includes("换一换");
+  }) as HTMLButtonElement | null;
+
+  // Method 4: Original fallback method
+  if (!button) {
+    button = Array.from(document.querySelectorAll("button")).find((button) =>
       button.textContent?.includes("换一换")
-    ) as HTMLButtonElement) || null
-  );
+    ) as HTMLButtonElement | null;
+  }
+
+  return button;
 }
