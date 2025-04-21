@@ -27,46 +27,59 @@ export function addNavigationButtons(): void {
   // Check if our navigation controls already exist
   if (document.getElementById("bili-feed-history-nav")) return;
 
-  // Create navigation container
+  // Get the container where the refresh button is positioned
+  const refreshParent = refreshButton.parentElement;
+  if (!refreshParent || !refreshParent.parentElement) {
+    console.log("Could not find proper parent elements for positioning");
+    return;
+  }
+
+  // Create navigation container with similar styles to the refresh button's parent
   const navContainer = document.createElement("div");
   navContainer.id = "bili-feed-history-nav";
+  navContainer.style.position = "absolute";
+  navContainer.style.top = "100px"; // Position below the refresh button
+  navContainer.style.left = "100%";
+  navContainer.style.transform = "translate(10px)";
+  navContainer.style.zIndex = "2";
   navContainer.style.display = "flex";
-  navContainer.style.justifyContent = "center";
-  navContainer.style.marginTop = "10px";
+  navContainer.style.flexDirection = "column";
+  navContainer.style.gap = "8px";
 
-  // Previous button
+  // Previous button with similar styling to refresh button
   const prevButton = document.createElement("button");
   prevButton.id = "bili-feed-prev";
   prevButton.innerHTML = "←";
-  prevButton.style.marginRight = "10px";
-  prevButton.style.padding = "5px 15px";
+  prevButton.style.padding = "5px 10px";
   prevButton.style.cursor = "pointer";
+  prevButton.style.backgroundColor =
+    refreshButton.style.backgroundColor || "#ffffff";
+  prevButton.style.border = refreshButton.style.border || "1px solid #e3e5e7";
+  prevButton.style.borderRadius = "4px";
+  prevButton.style.opacity = "0.8";
   prevButton.addEventListener("click", navigateToPreviousFeed);
 
-  // Next button
+  // Next button with similar styling
   const nextButton = document.createElement("button");
   nextButton.id = "bili-feed-next";
   nextButton.innerHTML = "→";
-  nextButton.style.padding = "5px 15px";
+  nextButton.style.padding = "5px 10px";
   nextButton.style.cursor = "pointer";
+  nextButton.style.backgroundColor =
+    refreshButton.style.backgroundColor || "#ffffff";
+  nextButton.style.border = refreshButton.style.border || "1px solid #e3e5e7";
+  nextButton.style.borderRadius = "4px";
+  nextButton.style.opacity = "0.8";
   nextButton.addEventListener("click", navigateToNextFeed);
 
   // Add buttons to container
   navContainer.appendChild(prevButton);
   navContainer.appendChild(nextButton);
 
-  // Add container after the refresh button
-  const parentElement = refreshButton.parentElement;
-  if (parentElement) {
-    if (parentElement.nextSibling) {
-      parentElement.parentNode?.insertBefore(
-        navContainer,
-        parentElement.nextSibling
-      );
-    } else {
-      parentElement.parentNode?.appendChild(navContainer);
-    }
-  }
+  // Add the container to the same parent as the refresh button's parent
+  const grandParent = refreshParent.parentElement;
+  grandParent.style.position = grandParent.style.position || "relative";
+  grandParent.appendChild(navContainer);
 
   // Add event listener to the refresh button
   refreshButton.addEventListener("click", () => {
