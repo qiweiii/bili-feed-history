@@ -9,10 +9,10 @@ export default defineConfig({
     permissions: ["storage"],
     host_permissions: ["https://www.bilibili.com"],
     icons: {
-      16: "icons/icon-16.png",
-      32: "icons/icon-32.png",
-      48: "icons/icon-48.png",
-      128: "icons/icon-128.png",
+      16: "icons/16.png",
+      32: "icons/32.png",
+      48: "icons/48.png",
+      128: "icons/128.png",
     },
   },
 });

@@ -44,11 +44,8 @@ export async function saveFeedItems(): Promise<void> {
   // Get current history
   const history = await feedHistoryStorage.getValue();
 
-  // Remove any future items if navigating from a past state
-  const newItems =
-    history.currentIndex < history.items.length - 1
-      ? history.items.slice(0, history.currentIndex + 1)
-      : history.items;
+  // Simply use existing items array without checking current index
+  const newItems = [...history.items];
 
   // Add new item to history
   newItems.push(historyItem);

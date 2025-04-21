@@ -1,5 +1,4 @@
 import { getFeedHistory, navigateToIndex } from "./storage";
-import { updateButtonStates } from "./ui";
 import { FeedHistoryItem } from "./types";
 
 // Navigate to previous feed items
@@ -48,4 +47,26 @@ export function displayFeed(historyItem: FeedHistoryItem): void {
   Array.from(tempContainer.children).forEach((child) => {
     feedCardsContainer.appendChild(child);
   });
+}
+
+// Update navigation button states
+export async function updateButtonStates(): Promise<void> {
+  const history = await getFeedHistory();
+
+  const prevButton = document.getElementById(
+    "bili-feed-prev"
+  ) as HTMLButtonElement;
+  const nextButton = document.getElementById(
+    "bili-feed-next"
+  ) as HTMLButtonElement;
+
+  if (!prevButton || !nextButton) return;
+
+  // Disable prev button if at the beginning
+  prevButton.disabled = history.currentIndex <= 0;
+  prevButton.style.opacity = prevButton.disabled ? "0.5" : "1";
+
+  // Disable next button if at the end
+  nextButton.disabled = history.currentIndex >= history.items.length - 1;
+  nextButton.style.opacity = nextButton.disabled ? "0.5" : "1";
 }
