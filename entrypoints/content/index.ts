@@ -3,7 +3,7 @@ import { setupUI } from "./ui";
 import { setupMutationObserver } from "./observer";
 
 export default defineContentScript({
-  matches: ["https://www.bilibili.com"],
+  matches: ["https://www.bilibili.com/*"],
   main() {
     console.log("Bilibili Feed History extension loaded");
 
