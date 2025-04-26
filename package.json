@@ -2,7 +2,7 @@
   "name": "bili-feed-history",
   "description": "Navigate through your bilibili feed history with back and forward buttons",
   "private": true,
-  "version": "0.0.5",
+  "version": "0.0.6",
   "type": "module",
   "scripts": {
     "dev": "wxt",

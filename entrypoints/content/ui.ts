@@ -84,14 +84,31 @@ export function addNavigationButtons(): void {
   // Add event listener to the refresh button
   refreshButton.addEventListener("click", () => {
     // Wait a moment for the new content to load
-    setTimeout(saveFeedItems, 1000);
+    setTimeout(() => {
+      // ensure old ones are removed
+      removeOldItems();
+      // save to storage
+      saveFeedItems();
+    }, 600);
   });
 
   updateButtonStates();
 }
 
+// remove my current items first if .feed-card count > 10
+function removeOldItems(): void {
+  const feedCards = document.querySelectorAll(".feed-card");
+  if (feedCards.length > 10) {
+    feedCards.forEach((card, index) => {
+      if (index < 10) {
+        card.remove();
+      }
+    });
+  }
+}
+
 // Find the "换一换" button in the DOM
-export function findRefreshButton(): HTMLButtonElement | null {
+function findRefreshButton(): HTMLButtonElement | null {
   // Method 1: Look for button elements with span containing "换一换"
   let button = Array.from(document.querySelectorAll("button")).find(
     (button) => {
@@ -107,20 +124,7 @@ export function findRefreshButton(): HTMLButtonElement | null {
     "button.primary-btn.roll-btn"
   ) as HTMLButtonElement | null;
   if (button) return button;
-
-  // Method 3: Fallback to any button with SVG and span with "换一换" text
-  button = Array.from(document.querySelectorAll("button")).find((button) => {
-    const hasSvg = button.querySelector("svg");
-    const span = button.querySelector("span");
-    return hasSvg && span && span.textContent?.includes("换一换");
-  }) as HTMLButtonElement | null;
-
-  // Method 4: Original fallback method
-  if (!button) {
-    button = Array.from(document.querySelectorAll("button")).find((button) =>
-      button.textContent?.includes("换一换")
-    ) as HTMLButtonElement | null;
+  else {
+    throw new Error("Refresh button not found");
   }
-
-  return button;
 }
