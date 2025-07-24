@@ -50,7 +50,7 @@ export function addNavigationButtons(): void {
   const prevButton = document.createElement("button");
   prevButton.id = "bili-feed-prev";
   prevButton.innerHTML = "←";
-  prevButton.style.padding = "5px 10px";
+  prevButton.style.padding = "5px 12px";
   prevButton.style.cursor = "pointer";
   prevButton.style.backgroundColor =
     refreshButton.style.backgroundColor || "#ffffff";
@@ -63,7 +63,7 @@ export function addNavigationButtons(): void {
   const nextButton = document.createElement("button");
   nextButton.id = "bili-feed-next";
   nextButton.innerHTML = "→";
-  nextButton.style.padding = "5px 10px";
+  nextButton.style.padding = "5px 12px";
   nextButton.style.cursor = "pointer";
   nextButton.style.backgroundColor =
     refreshButton.style.backgroundColor || "#ffffff";
