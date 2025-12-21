@@ -1,6 +1,6 @@
 import { setupStorage } from "./storage";
 import { setupUI } from "./ui";
-import { setupMutationObserver } from "./observer";
+import { setupMutationObserver, setupThemeObserver } from "./observer";
 
 export default defineContentScript({
   matches: ["https://www.bilibili.com/*"],
@@ -16,6 +16,7 @@ export default defineContentScript({
       .then(() => {
         // Watch for DOM changes
         setupMutationObserver();
+        setupThemeObserver();
       });
   },
 });

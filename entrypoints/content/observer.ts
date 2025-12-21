@@ -1,4 +1,4 @@
-import { addNavigationButtons } from "./ui";
+import { addNavigationButtons, updateButtonStyles } from "./ui";
 
 // Setup mutation observer to watch for dynamic changes
 export function setupMutationObserver(): void {
@@ -16,5 +16,26 @@ export function setupMutationObserver(): void {
   observer.observe(document.body, {
     childList: true,
     subtree: true,
+  });
+}
+
+export function setupThemeObserver(): void {
+  if (typeof document === "undefined" || !document.documentElement) return;
+
+  let pendingFrame = false;
+  const observer = new MutationObserver(() => {
+    if (pendingFrame) return;
+    pendingFrame = true;
+    window.requestAnimationFrame(() => {
+      updateButtonStyles();
+      // Re-run once after CSS variables settle
+      setTimeout(updateButtonStyles, 120);
+      pendingFrame = false;
+    });
+  });
+
+  observer.observe(document.documentElement, {
+    attributes: true,
+    attributeFilter: ["class"],
   });
 }

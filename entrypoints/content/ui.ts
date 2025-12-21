@@ -38,7 +38,7 @@ export function addNavigationButtons(): void {
   const navContainer = document.createElement("div");
   navContainer.id = "bili-feed-history-nav";
   navContainer.style.position = "absolute";
-  navContainer.style.top = "100px"; // Position below the refresh button
+  navContainer.style.top = "105px"; // Position below the refresh button
   navContainer.style.left = "100%";
   navContainer.style.transform = "translate(10px)";
   navContainer.style.zIndex = "2";
@@ -50,26 +50,14 @@ export function addNavigationButtons(): void {
   const prevButton = document.createElement("button");
   prevButton.id = "bili-feed-prev";
   prevButton.innerHTML = "←";
-  prevButton.style.padding = "5px 12px";
-  prevButton.style.cursor = "pointer";
-  prevButton.style.backgroundColor =
-    refreshButton.style.backgroundColor || "#ffffff";
-  prevButton.style.border = refreshButton.style.border || "1px solid #e3e5e7";
-  prevButton.style.borderRadius = "4px";
-  prevButton.style.opacity = "0.8";
+  styleNavigationButton(prevButton);
   prevButton.addEventListener("click", navigateToPreviousFeed);
 
   // Next button with similar styling
   const nextButton = document.createElement("button");
   nextButton.id = "bili-feed-next";
   nextButton.innerHTML = "→";
-  nextButton.style.padding = "5px 12px";
-  nextButton.style.cursor = "pointer";
-  nextButton.style.backgroundColor =
-    refreshButton.style.backgroundColor || "#ffffff";
-  nextButton.style.border = refreshButton.style.border || "1px solid #e3e5e7";
-  nextButton.style.borderRadius = "4px";
-  nextButton.style.opacity = "0.8";
+  styleNavigationButton(nextButton);
   nextButton.addEventListener("click", navigateToNextFeed);
 
   // Add buttons to container
@@ -92,6 +80,7 @@ export function addNavigationButtons(): void {
     }, 600);
   });
 
+  updateButtonStyles();
   updateButtonStates();
 }
 
@@ -123,8 +112,49 @@ function findRefreshButton(): HTMLButtonElement | null {
   button = document.querySelector(
     "button.primary-btn.roll-btn"
   ) as HTMLButtonElement | null;
-  if (button) return button;
-  else {
-    throw new Error("Refresh button not found");
+  return button;
+}
+
+function styleNavigationButton(button: HTMLButtonElement): void {
+  button.style.padding = "5px 12px";
+  button.style.cursor = "pointer";
+  button.style.borderRadius = "4px";
+  button.style.opacity = "0.8";
+  button.style.transition = "all 0.2s ease";
+  button.style.backgroundColor = "transparent";
+}
+
+export function updateButtonStyles(): void {
+  const refreshButton = findRefreshButton();
+  const prevButton = document.getElementById(
+    "bili-feed-prev"
+  ) as HTMLButtonElement;
+  const nextButton = document.getElementById(
+    "bili-feed-next"
+  ) as HTMLButtonElement;
+
+  if (!refreshButton || !prevButton || !nextButton) {
+    setTimeout(updateButtonStyles, 120);
+    return;
   }
+
+  // First pass now, second pass after CSS vars settle
+  applyRefreshStyles(refreshButton, prevButton);
+  applyRefreshStyles(refreshButton, nextButton);
+  setTimeout(() => {
+    applyRefreshStyles(refreshButton, prevButton);
+    applyRefreshStyles(refreshButton, nextButton);
+  }, 120);
+}
+
+function applyRefreshStyles(
+  refreshButton: HTMLButtonElement,
+  targetButton: HTMLButtonElement
+): void {
+  const computedStyle = getComputedStyle(refreshButton);
+  targetButton.style.backgroundColor = computedStyle.backgroundColor;
+  targetButton.style.border = computedStyle.border;
+  targetButton.style.color = computedStyle.color;
+  targetButton.style.boxShadow = computedStyle.boxShadow;
+  targetButton.style.width = computedStyle.width;
 }
