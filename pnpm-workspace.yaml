@@ -1,0 +1,18 @@
+packages:
+  - .
+
+overrides:
+  "@webext-core/isolated-element": 1.1.4
+  shell-quote: 1.9.0
+  node-forge: 1.4.0
+  tmp: 0.2.7
+  adm-zip: 0.6.1
+  defu: 6.1.5
+  postcss: 8.5.28
+  nanoid: 3.3.18
+  browserslist: 4.28.7
+  "minimatch@3": 3.1.4
+  brace-expansion: 1.1.18
+  picomatch: 4.0.4
+  vite: 6.4.3
+  rollup: 4.63.0
