@@ -1,5 +1,5 @@
-import { updateButtonStates } from "./navigation";
 import type { FeedHistory, FeedHistoryItem } from "./types";
+import { getLiveFeedCards, serializeFeedCards } from "./feed";
 
 // Define a storage item with proper namespace
 const feedHistoryStorage = storage.defineItem<FeedHistory>(
@@ -12,6 +12,17 @@ const feedHistoryStorage = storage.defineItem<FeedHistory>(
   }
 );
 
+let historyWriteQueue: Promise<void> = Promise.resolve();
+
+function enqueueHistoryWrite<T>(operation: () => Promise<T>): Promise<T> {
+  const queuedOperation = historyWriteQueue.catch(() => {}).then(operation);
+  historyWriteQueue = queuedOperation.then(
+    () => undefined,
+    () => undefined
+  );
+  return queuedOperation;
+}
+
 /**
  * Initialize storage
  */
@@ -22,44 +33,41 @@ export async function setupStorage(): Promise<void> {
 /**
  * Save current feed items to storage
  */
-export async function saveFeedItems(): Promise<void> {
-  const feedCards = document.querySelectorAll(".feed-card");
+export function saveFeedItems(): Promise<void> {
+  if (location.pathname !== "/") return Promise.resolve();
 
-  if (feedCards.length === 0) return;
+  const cards = getLiveFeedCards();
+  if (cards.length === 0) return Promise.resolve();
+  const html = serializeFeedCards(cards);
 
-  // Create a container element to store the feed HTML
-  const container = document.createElement("div");
-  feedCards.forEach((card) => {
-    container.appendChild(card.cloneNode(true));
-  });
+  return enqueueHistoryWrite(async () => {
+    const history = await feedHistoryStorage.getValue();
+    const existingIndex = history.items.findIndex((item) => item.html === html);
 
-  // Generate an ID for this set of feed items
-  const id = Date.now().toString();
+    // Avoid duplicates when initialization and refresh capture overlap.
+    if (existingIndex >= 0) {
+      if (history.currentIndex === existingIndex) return;
 
-  // Create history item
-  const historyItem: FeedHistoryItem = {
-    id,
-    html: container.innerHTML,
-    timestamp: Date.now(),
-  };
+      await feedHistoryStorage.setValue({
+        ...history,
+        currentIndex: existingIndex,
+      });
+      return;
+    }
 
-  // Get current history
-  const history = await feedHistoryStorage.getValue();
+    const timestamp = Date.now();
+    const historyItem: FeedHistoryItem = {
+      id: `${timestamp}-${Math.random().toString(36).slice(2)}`,
+      html,
+      timestamp,
+    };
+    const newItems = [...history.items, historyItem];
+    const limitedItems = newItems.slice(-10);
 
-  // Simply use existing items array without checking current index
-  const newItems = [...history.items];
-
-  // Add new item to history
-  newItems.push(historyItem);
-
-  // Limit to 10 items
-  const limitedItems =
-    newItems.length > 10 ? newItems.slice(newItems.length - 10) : newItems;
-
-  // Update history using proper setValue method
-  await feedHistoryStorage.setValue({
-    items: limitedItems,
-    currentIndex: limitedItems.length - 1,
+    await feedHistoryStorage.setValue({
+      items: limitedItems,
+      currentIndex: limitedItems.length - 1,
+    });
   });
 }
 
@@ -77,16 +85,41 @@ export async function getFeedHistory(): Promise<FeedHistory> {
 export async function navigateToIndex(
   index: number
 ): Promise<FeedHistoryItem | null> {
-  const history = await feedHistoryStorage.getValue();
+  return enqueueHistoryWrite(async () => {
+    const history = await feedHistoryStorage.getValue();
 
-  if (index < 0 || index >= history.items.length) {
-    return null;
-  }
+    if (index < 0 || index >= history.items.length) {
+      return null;
+    }
 
-  await feedHistoryStorage.setValue({
-    ...history,
-    currentIndex: index,
+    await feedHistoryStorage.setValue({
+      ...history,
+      currentIndex: index,
+    });
+
+    return history.items[index];
   });
+}
 
-  return history.items[index];
+/**
+ * Move relative to the latest stored index in the same serialized write queue.
+ */
+export function navigateToRelative(
+  offset: number
+): Promise<FeedHistoryItem | null> {
+  return enqueueHistoryWrite(async () => {
+    const history = await feedHistoryStorage.getValue();
+    const index = history.currentIndex + offset;
+
+    if (index < 0 || index >= history.items.length) {
+      return null;
+    }
+
+    await feedHistoryStorage.setValue({
+      ...history,
+      currentIndex: index,
+    });
+
+    return history.items[index];
+  });
 }

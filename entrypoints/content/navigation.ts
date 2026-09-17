@@ -1,86 +1,90 @@
-import { getFeedHistory, navigateToIndex } from "./storage";
-import { FeedHistoryItem } from "./types";
+import { getFeedHistory, navigateToRelative } from "./storage";
+import {
+  getLiveFeedCards,
+  historyCardAttribute,
+  historyHostAttribute,
+} from "./feed";
+import type { FeedHistoryItem } from "./types";
 
-// Navigate to previous feed items
+let historyStyle: HTMLStyleElement | null = null;
+const historyCards: { live: HTMLElement; overlay: HTMLElement }[] = [];
+let viewRevision = 0;
+
 export async function navigateToPreviousFeed(): Promise<void> {
-  const history = await getFeedHistory();
-  if (history.currentIndex <= 0) return;
-
-  const historyItem = await navigateToIndex(history.currentIndex - 1);
-  if (historyItem) {
-    replaceFeeds(historyItem);
-    updateButtonStates();
-  }
+  await navigateHistory(-1);
 }
 
-// Navigate to next feed items
 export async function navigateToNextFeed(): Promise<void> {
-  const history = await getFeedHistory();
-  if (history.currentIndex >= history.items.length - 1) return;
+  await navigateHistory(1);
+}
 
-  const historyItem = await navigateToIndex(history.currentIndex + 1);
-  if (historyItem) {
-    replaceFeeds(historyItem);
-    updateButtonStates();
+async function navigateHistory(offset: number): Promise<void> {
+  const revision = ++viewRevision;
+  const item = await navigateToRelative(offset);
+  if (item && revision === viewRevision && location.pathname === "/") {
+    replaceFeeds(item);
+    void updateButtonStates();
   }
 }
 
-// Display feed items from history
+// Preserve the native grid and carousel; cover only the existing card slots.
 export function replaceFeeds(historyItem: FeedHistoryItem): void {
-  // Find the container for feed cards
-  const feedCardsContainer =
-    document.querySelector(".feed-card")?.parentElement;
-  if (!feedCardsContainer) {
-    return;
-  }
+  exitHistoryView();
+  const saved = document.createElement("div");
+  saved.innerHTML = historyItem.html;
+  // Ignore non-card content in snapshots made by the previous local fix.
+  const cards = Array.from(saved.querySelectorAll<HTMLElement>(".feed-card"));
+  const liveCards = getLiveFeedCards();
 
-  // Create a temporary element to parse HTML
-  const tempContainer = document.createElement("div");
-  tempContainer.innerHTML = historyItem.html;
-
-  // Get the existing cards and new cards from history
-  const existingCards = feedCardsContainer.querySelectorAll(".feed-card");
-  const historyCards = Array.from(tempContainer.querySelectorAll(".feed-card"));
-
-  // Replace existing cards with history cards (assuming same count)
-  if (existingCards.length > 0 && historyCards.length > 0) {
-    // Simple 1:1 replacement of cards
-    for (let i = 0; i < existingCards.length; i++) {
-      if (historyCards[i]) {
-        feedCardsContainer.replaceChild(historyCards[i], existingCards[i]);
-      }
+  historyStyle = document.createElement("style");
+  historyStyle.textContent = `
+    .feed-card[${historyHostAttribute}] {
+      position: relative !important;
+      visibility: hidden !important;
     }
-  } else {
-    // Fallback to the original method if no cards found
-
-    // Clear existing feed cards
-    existingCards.forEach((card) => card.remove());
-
-    // Add the history feed cards to the container
-    while (tempContainer.firstChild) {
-      feedCardsContainer.appendChild(tempContainer.firstChild);
+    .feed-card[${historyCardAttribute}] {
+      position: absolute !important;
+      inset: 0 !important;
+      width: 100% !important;
+      height: 100% !important;
+      margin: 0 !important;
+      display: block !important;
+      visibility: visible !important;
+      overflow: hidden;
+      z-index: 1;
     }
-  }
+  `;
+  document.head.appendChild(historyStyle);
+
+  liveCards.forEach((live, index) => {
+    const overlay = cards[index];
+    if (!overlay) return;
+    overlay.setAttribute(historyCardAttribute, "");
+    live.setAttribute(historyHostAttribute, "");
+    live.appendChild(overlay);
+    historyCards.push({ live, overlay });
+  });
+}
+
+export function exitHistoryView(): void {
+  ++viewRevision;
+  historyCards.splice(0).forEach(({ live, overlay }) => {
+    overlay.remove();
+    live.removeAttribute(historyHostAttribute);
+  });
+  historyStyle?.remove();
+  historyStyle = null;
 }
 
 // Update navigation button states
 export async function updateButtonStates(): Promise<void> {
   const history = await getFeedHistory();
-
-  const prevButton = document.getElementById(
-    "bili-feed-prev"
-  ) as HTMLButtonElement;
-  const nextButton = document.getElementById(
-    "bili-feed-next"
-  ) as HTMLButtonElement;
-
+  const prevButton = document.getElementById("bili-feed-prev") as HTMLButtonElement;
+  const nextButton = document.getElementById("bili-feed-next") as HTMLButtonElement;
   if (!prevButton || !nextButton) return;
 
-  // Disable prev button if at the beginning
   prevButton.disabled = history.currentIndex <= 0;
   prevButton.style.opacity = prevButton.disabled ? "0.5" : "1";
-
-  // Disable next button if at the end
   nextButton.disabled = history.currentIndex >= history.items.length - 1;
   nextButton.style.opacity = nextButton.disabled ? "0.5" : "1";
 }

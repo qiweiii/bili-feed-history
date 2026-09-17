@@ -4,8 +4,10 @@
 export interface FeedHistoryItem {
   /** Unique ID for the history item */
   id: string;
-  /** HTML content of feed cards */
+  /** HTML content of recommendation cards only */
   html: string;
+  /** Identifies snapshots that contain the complete recommendation container */
+  format?: "feed-container";
   /** Timestamp when this item was saved */
   timestamp: number;
 }

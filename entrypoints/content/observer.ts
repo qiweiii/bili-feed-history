@@ -1,36 +1,51 @@
-import { addNavigationButtons, updateButtonStyles } from "./ui";
+import {
+  addNavigationButtons,
+  isHomeFeedPage,
+  updateButtonStyles,
+} from "./ui";
 
 // Setup mutation observer to watch for dynamic changes
-export function setupMutationObserver(): void {
-  const observer = new MutationObserver((mutations) => {
-    for (const mutation of mutations) {
-      if (mutation.type === "childList" && mutation.addedNodes.length > 0) {
-        // Check if our navigation controls exist
-        if (!document.getElementById("bili-feed-history-nav")) {
-          addNavigationButtons();
-        }
-      }
+export function setupMutationObserver(): () => void {
+  let pending = false;
+  let disposed = false;
+  const observer = new MutationObserver(() => {
+    if (!isHomeFeedPage() || document.getElementById("bili-feed-history-nav")) {
+      return;
     }
+
+    // Bilibili mutates the DOM constantly; collapse bursts into one check.
+    if (pending) return;
+    pending = true;
+    window.requestAnimationFrame(() => {
+      pending = false;
+      if (disposed) return;
+      if (!document.getElementById("bili-feed-history-nav")) {
+        addNavigationButtons();
+      }
+    });
   });
 
   observer.observe(document.body, {
     childList: true,
     subtree: true,
   });
+  return () => {
+    disposed = true;
+    observer.disconnect();
+  };
 }
 
-export function setupThemeObserver(): void {
-  if (typeof document === "undefined" || !document.documentElement) return;
+export function setupThemeObserver(): () => void {
 
   let pendingFrame = false;
+  let disposed = false;
   const observer = new MutationObserver(() => {
     if (pendingFrame) return;
     pendingFrame = true;
     window.requestAnimationFrame(() => {
-      updateButtonStyles();
-      // Re-run once after CSS variables settle
-      setTimeout(updateButtonStyles, 120);
       pendingFrame = false;
+      if (disposed || !isHomeFeedPage()) return;
+      updateButtonStyles();
     });
   });
 
@@ -38,4 +53,8 @@ export function setupThemeObserver(): void {
     attributes: true,
     attributeFilter: ["class"],
   });
+  return () => {
+    disposed = true;
+    observer.disconnect();
+  };
 }

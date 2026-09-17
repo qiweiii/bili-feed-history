@@ -1,29 +1,63 @@
-import { saveFeedItems } from "./storage";
+import { startFeedCapture, stopFeedCapture } from "./capture";
 import {
   navigateToPreviousFeed,
   navigateToNextFeed,
   updateButtonStates,
+  exitHistoryView,
 } from "./navigation";
 import { FeedHistory } from "./types";
 
-// Set up all UI components
-export function setupUI(): void {
-  saveFeedItems();
-  addNavigationButtons();
+let navigationRetryTimer: number | undefined;
+let refreshClickHandlerInstalled = false;
 
-  storage.watch<FeedHistory>("local:biliFeedHistory", (newValue, oldValue) => {
+export function isHomeFeedPage(): boolean {
+  return location.pathname === "/";
+}
+
+// Set up all UI components
+export function setupUI(): () => void {
+  installRefreshClickHandler();
+
+  const unwatch = storage.watch<FeedHistory>("local:biliFeedHistory", () => {
     updateButtonStates();
   });
+
+  if (isHomeFeedPage()) {
+    addNavigationButtons();
+    startFeedCapture(true);
+  }
+  return () => {
+    unwatch();
+    document.removeEventListener("click", handleRefreshClick, true);
+    refreshClickHandlerInstalled = false;
+    clearNavigationRetry();
+    stopFeedCapture();
+    exitHistoryView();
+    document.getElementById("bili-feed-history-nav")?.remove();
+  };
 }
 
 // Add navigation buttons below "换一换" button
-export function addNavigationButtons(): void {
+export function addNavigationButtons(retries = 10): void {
+  // Not on video/watch pages - the 换一换 button only exists on the home feed.
+  if (!isHomeFeedPage()) {
+    clearNavigationRetry();
+    return;
+  }
+
   // Find the "换一换" button
   const refreshButton = findRefreshButton();
   if (!refreshButton) {
-    setTimeout(addNavigationButtons, 1000); // Try again later
+    if (retries > 0 && navigationRetryTimer === undefined) {
+      navigationRetryTimer = window.setTimeout(() => {
+        navigationRetryTimer = undefined;
+        addNavigationButtons(retries - 1);
+      }, 1000);
+    }
     return;
   }
+
+  clearNavigationRetry();
 
   // Check if our navigation controls already exist
   if (document.getElementById("bili-feed-history-nav")) return;
@@ -69,31 +103,47 @@ export function addNavigationButtons(): void {
   grandParent.style.position = grandParent.style.position || "relative";
   grandParent.appendChild(navContainer);
 
-  // Add event listener to the refresh button
-  refreshButton.addEventListener("click", () => {
-    // Wait a moment for the new content to load
-    setTimeout(() => {
-      // ensure old ones are removed
-      removeOldItems();
-      // save to storage
-      saveFeedItems();
-    }, 600);
-  });
+  installRefreshClickHandler();
 
   updateButtonStyles();
   updateButtonStates();
 }
 
-// remove my current items first if .feed-card count > 10
-function removeOldItems(): void {
-  const feedCards = document.querySelectorAll(".feed-card");
-  if (feedCards.length > 10) {
-    feedCards.forEach((card, index) => {
-      if (index < 10) {
-        card.remove();
-      }
-    });
-  }
+function clearNavigationRetry(): void {
+  if (navigationRetryTimer === undefined) return;
+  clearTimeout(navigationRetryTimer);
+  navigationRetryTimer = undefined;
+}
+
+// ---- Refresh capture ----
+
+
+function installRefreshClickHandler(): void {
+  if (refreshClickHandlerInstalled) return;
+  document.addEventListener("click", handleRefreshClick, true);
+  refreshClickHandlerInstalled = true;
+}
+
+function handleRefreshClick(event: MouseEvent): void {
+  if (!isHomeFeedPage()) return;
+
+  const target = event.target;
+  if (!(target instanceof Element)) return;
+
+  const button = target.closest("button");
+  if (!(button instanceof HTMLButtonElement)) return;
+  if (!isRefreshButton(button)) return;
+
+  // Let Bilibili handle its own live feed DOM before starting a new capture.
+  exitHistoryView();
+  startFeedCapture();
+}
+
+function isRefreshButton(button: HTMLButtonElement): boolean {
+  return (
+    button.textContent?.includes("换一换") === true ||
+    button.matches("button.primary-btn.roll-btn")
+  );
 }
 
 // Find the "换一换" button in the DOM
@@ -125,6 +175,8 @@ function styleNavigationButton(button: HTMLButtonElement): void {
 }
 
 export function updateButtonStyles(): void {
+  if (!isHomeFeedPage()) return;
+
   const refreshButton = findRefreshButton();
   const prevButton = document.getElementById(
     "bili-feed-prev"
@@ -133,18 +185,10 @@ export function updateButtonStyles(): void {
     "bili-feed-next"
   ) as HTMLButtonElement;
 
-  if (!refreshButton || !prevButton || !nextButton) {
-    setTimeout(updateButtonStyles, 120);
-    return;
-  }
+  if (!refreshButton || !prevButton || !nextButton) return;
 
-  // First pass now, second pass after CSS vars settle
   applyRefreshStyles(refreshButton, prevButton);
   applyRefreshStyles(refreshButton, nextButton);
-  setTimeout(() => {
-    applyRefreshStyles(refreshButton, prevButton);
-    applyRefreshStyles(refreshButton, nextButton);
-  }, 120);
 }
 
 function applyRefreshStyles(
