@@ -16,6 +16,8 @@ export interface FeedHistoryItem {
  * Represents the complete feed history
  */
 export interface FeedHistory {
+  /** Extension version that created this ephemeral history */
+  extensionVersion?: string;
   /** List of feed history items */
   items: FeedHistoryItem[];
   /** Index of the currently displayed item */

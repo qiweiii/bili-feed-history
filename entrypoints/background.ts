@@ -1,3 +1,8 @@
 export default defineBackground(() => {
-  // Keep saved feed history when the extension updates.
+  browser.runtime.onInstalled.addListener((details) => {
+    if (details.reason === "install" || details.reason === "update") {
+      // Keep in sync with feedHistoryStorageKey in content/storage.ts.
+      void storage.removeItem("local:biliFeedHistory");
+    }
+  });
 });

@@ -1,17 +1,15 @@
 import {
   addNavigationButtons,
-  isHomeFeedPage,
   updateButtonStyles,
-} from "./ui";
+} from "./controls";
+import { isHomeFeedPage } from "./bilibili";
 
 // Setup mutation observer to watch for dynamic changes
 export function setupMutationObserver(): () => void {
   let pending = false;
   let disposed = false;
   const observer = new MutationObserver(() => {
-    if (!isHomeFeedPage() || document.getElementById("bili-feed-history-nav")) {
-      return;
-    }
+    if (!isHomeFeedPage()) return;
 
     // Bilibili mutates the DOM constantly; collapse bursts into one check.
     if (pending) return;
@@ -19,7 +17,9 @@ export function setupMutationObserver(): () => void {
     window.requestAnimationFrame(() => {
       pending = false;
       if (disposed) return;
-      if (!document.getElementById("bili-feed-history-nav")) {
+      if (document.getElementById("bili-feed-history-nav")) {
+        updateButtonStyles();
+      } else {
         addNavigationButtons();
       }
     });

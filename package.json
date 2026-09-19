@@ -2,26 +2,20 @@
   "name": "bili-feed-history",
   "description": "Navigate through your bilibili feed history with back and forward buttons",
   "private": true,
-  "version": "1.0.1",
+  "version": "1.0.2",
   "type": "module",
   "scripts": {
     "dev": "wxt",
     "dev:firefox": "wxt -b firefox",
     "build": "wxt build",
+    "build:diagnostic": "wxt build --mode diagnostic",
     "build:firefox": "wxt build -b firefox",
     "zip": "wxt zip",
     "zip:firefox": "wxt zip -b firefox",
     "compile": "tsc --noEmit",
     "postinstall": "wxt prepare"
   },
-  "dependencies": {
-    "react": "^19.1.0",
-    "react-dom": "^19.1.0"
-  },
   "devDependencies": {
-    "@types/react": "^19.1.0",
-    "@types/react-dom": "^19.1.2",
-    "@wxt-dev/module-react": "^1.1.4",
     "typescript": "^5.9.3",
     "wxt": "^0.20.27"
   }

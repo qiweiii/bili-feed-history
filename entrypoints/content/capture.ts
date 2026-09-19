@@ -1,78 +1,140 @@
-import { getLiveFeedCards } from "./feed";
-import { saveFeedItems } from "./storage";
+import { getFeedCards, isHomeFeedPage } from "./bilibili";
+import { feedIdentity, getLiveFeedCards } from "./feed";
+import { getFeedHistory, saveFeedItems } from "./storage";
+import {
+  exitHistoryView,
+  getViewRevision,
+  restoreLatestFeed,
+} from "./navigation";
+import { trace, traceHtml } from "./debug";
 
-const captureTimeoutMs = 10000;
-let timer: number | undefined;
+const captureTimeoutMs = 30000;
+const pollIntervalMs = 250;
+// A feed identity must stay stable this long before it counts as the new feed.
+const settleMs = 500;
+
+let pollTimer: number | undefined;
 let baseline = "";
 let candidate = "";
 let candidateSince = 0;
 let deadline = 0;
 let expectedCount = 0;
+let initialCapture = false;
+let viewRevision = 0;
+let restoreLatest = false;
 
-function readFeed(): { signature: string; count: number } {
-  const cards = getLiveFeedCards();
-  const identities = cards.map((card) => {
-    const link = card.querySelector<HTMLAnchorElement>('a[href*="/video/"]') ??
-      card.querySelector<HTMLAnchorElement>("a[href]");
-    if (link) {
-      const href = link.getAttribute("href");
-      if (href) {
-        try {
-          const url = new URL(href, location.href);
-          return url.host + url.pathname;
-        } catch {
-          return href;
-        }
-      }
-    }
-    return card.textContent?.replace(/\s+/g, " ").trim().slice(0, 80) ?? "";
-  });
+function getStartupCaptureMode(): {
+  navigationType: string;
+  restoreLatest: boolean;
+} {
+  if (typeof performance === "undefined") {
+    return { navigationType: "unknown", restoreLatest: false };
+  }
+
+  const navigation = performance.getEntriesByType("navigation")[0] as
+    | PerformanceNavigationTiming
+    | undefined;
+  const navigationType = navigation?.type ?? "unknown";
   return {
-    signature: identities.length && identities.every(Boolean)
-      ? identities.join("\u001f") : "",
+    navigationType,
+    // Chrome uses back_forward when it restores the previous session's tab.
+    restoreLatest: navigationType === "back_forward",
+  };
+}
+
+function readFeed(): { signature: string; count: number; total: number } {
+  const cards = getLiveFeedCards();
+  return {
+    signature: feedIdentity(cards),
     count: cards.length,
+    total: getFeedCards().length,
   };
 }
 
 export function startFeedCapture(initial = false): void {
-  if (location.pathname !== "/") return;
+  if (!isHomeFeedPage()) return;
+  const startupMode = initial
+    ? getStartupCaptureMode()
+    : { navigationType: "not-startup", restoreLatest: false };
+  trace("capture.start", {
+    initial,
+    pending: pollTimer !== undefined,
+    navigationType: startupMode.navigationType,
+    restoreLatest: startupMode.restoreLatest,
+    ...readFeed(),
+  });
   // Repeated clicks extend the pending request without forgetting its baseline.
-  if (timer !== undefined) {
+  if (pollTimer !== undefined) {
     deadline = Date.now() + captureTimeoutMs;
     return;
   }
   const feed = readFeed();
+  initialCapture = initial;
+  restoreLatest = startupMode.restoreLatest;
+  viewRevision = getViewRevision();
   baseline = initial ? "" : feed.signature;
   expectedCount = feed.count;
   candidate = "";
   deadline = Date.now() + captureTimeoutMs;
-  timer = window.setTimeout(poll, 250);
+  pollTimer = window.setTimeout(poll, pollIntervalMs);
 }
 
 function poll(): void {
-  timer = undefined;
-  if (location.pathname !== "/" || Date.now() >= deadline) {
+  pollTimer = undefined;
+  if (!isHomeFeedPage() || Date.now() >= deadline) {
+    const feed = readFeed();
+    trace("capture.timeout", {
+      ...feed,
+      baseline,
+      candidate,
+      expectedCount,
+    });
+    traceHtml("capture.timeout");
     stopFeedCapture();
     return;
   }
   const feed = readFeed();
-  if (!feed.signature || feed.signature === baseline || feed.count < expectedCount) {
+  if (
+    !feed.signature ||
+    feed.signature === baseline ||
+    feed.count < expectedCount
+  ) {
     candidate = "";
   } else if (feed.signature !== candidate) {
+    trace("capture.candidate", feed);
     candidate = feed.signature;
     candidateSince = Date.now();
-  } else if (Date.now() - candidateSince >= 500) {
+  } else if (Date.now() - candidateSince >= settleMs) {
+    trace("capture.settled", feed);
+    traceHtml("capture.settled");
     stopFeedCapture();
-    void saveFeedItems().catch((error) => {
+    void completeCapture(
+      initialCapture,
+      viewRevision,
+      restoreLatest,
+    ).catch((error) => {
       console.error("Could not save Bilibili feed history", error);
     });
     return;
   }
-  timer = window.setTimeout(poll, 250);
+  pollTimer = window.setTimeout(poll, pollIntervalMs);
+}
+
+async function completeCapture(
+  initial: boolean,
+  revision: number,
+  restoreLatest: boolean,
+): Promise<void> {
+  if (initial && restoreLatest && (await getFeedHistory()).items.length > 0) {
+    await restoreLatestFeed(revision);
+  } else {
+    if (!initial && revision === getViewRevision()) exitHistoryView();
+    await saveFeedItems(initial);
+  }
 }
 
 export function stopFeedCapture(): void {
-  clearTimeout(timer);
-  timer = undefined;
+  clearTimeout(pollTimer);
+  pollTimer = undefined;
   candidate = "";
 }
