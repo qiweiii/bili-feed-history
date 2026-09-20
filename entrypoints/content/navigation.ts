@@ -14,6 +14,37 @@ const historyCardPairs: { live: HTMLElement; overlay: HTMLElement }[] = [];
 let historyLayer: HTMLElement | null = null;
 let viewRevision = 0;
 
+// Overlay cards cover live cards, so they must be opaque or the live card
+// underneath bleeds through. Copy the theme-aware background from the live
+// card (or the nearest opaque ancestor) so restored cards match Bilibili's
+// current theme instead of a fixed light color.
+function opaqueBackgroundColor(source: HTMLElement): string {
+  for (let node: HTMLElement | null = source; node; node = node.parentElement) {
+    const backgroundColor = getComputedStyle(node).backgroundColor;
+    if (
+      backgroundColor &&
+      backgroundColor !== "transparent" &&
+      backgroundColor !== "rgba(0, 0, 0, 0)"
+    ) {
+      return backgroundColor;
+    }
+  }
+  return "Canvas";
+}
+
+function applyHistoryCardBackground(pair: { live: HTMLElement; overlay: HTMLElement }): void {
+  pair.overlay.style.setProperty(
+    "background-color",
+    opaqueBackgroundColor(pair.live),
+    "important",
+  );
+}
+
+// Re-sync overlay backgrounds after a theme switch while viewing history.
+export function updateHistoryCardStyles(): void {
+  historyCardPairs.forEach(applyHistoryCardBackground);
+}
+
 export function getViewRevision(): number {
   return viewRevision;
 }
@@ -79,11 +110,11 @@ export function replaceFeeds(historyItem: FeedHistoryItem): void {
     overlay.style.margin = "0";
     overlay.style.display = "block";
     overlay.style.visibility = "visible";
-    overlay.style.setProperty("background-color", "Canvas", "important");
     overlay.style.overflow = "hidden";
     overlay.style.pointerEvents = "auto";
     historyLayer?.appendChild(overlay);
     historyCardPairs.push({ live, overlay });
+    applyHistoryCardBackground({ live, overlay });
   });
   document.body.appendChild(historyLayer);
   syncHistoryCardPositions();

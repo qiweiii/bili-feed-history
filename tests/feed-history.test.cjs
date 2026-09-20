@@ -455,6 +455,25 @@ test("history preserves the live grid, carousel, and original card nodes", () =>
 	assert.equal(document.head.children.length, 0);
 });
 
+test("restored cards follow the live card background across theme switches", () => {
+	const { document, feed, navigation } = fixture();
+	const live = feed.getLiveFeedCards()[0];
+	live.style.backgroundColor = "rgb(35, 36, 37)"; // Bilibili dark theme
+	navigation.replaceFeeds({
+		html: '<div class="feed-card">History one</div>',
+	});
+	const overlay = document.querySelector("[data-bili-feed-history-card]");
+	assert.equal(
+		overlay.style.backgroundColor,
+		"rgb(35, 36, 37)",
+		"dark theme cards must not be forced to a light background",
+	);
+	live.style.backgroundColor = "rgb(255, 255, 255)"; // switch to light theme
+	navigation.updateHistoryCardStyles();
+	assert.equal(overlay.style.backgroundColor, "rgb(255, 255, 255)");
+	navigation.exitHistoryView();
+});
+
 test("alternating visible batches exclude the hidden restored feed", () => {
 	const { document, feed } = fixture();
 	const cards = [...document.querySelectorAll(".feed-card")];

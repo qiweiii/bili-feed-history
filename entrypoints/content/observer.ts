@@ -2,6 +2,7 @@ import {
   addNavigationButtons,
   updateButtonStyles,
 } from "./controls";
+import { updateHistoryCardStyles } from "./navigation";
 import { isHomeFeedPage } from "./bilibili";
 
 // Setup mutation observer to watch for dynamic changes
@@ -46,6 +47,7 @@ export function setupThemeObserver(): () => void {
       pendingFrame = false;
       if (disposed || !isHomeFeedPage()) return;
       updateButtonStyles();
+      updateHistoryCardStyles();
     });
   });
 
