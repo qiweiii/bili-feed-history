@@ -172,7 +172,7 @@ export function navigateToRelative(
 		const history = await feedHistoryStorage.getValue();
 		let index = history.currentIndex + offset;
 		// Older diagnostic builds could save loading cards. Keep the data, but
-		// never navigate to a snapshot that cannot identify every saved card.
+		// skip snapshots without any identifiable card.
 		while (
 			offset !== 0 &&
 			index >= 0 &&

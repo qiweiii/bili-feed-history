@@ -229,13 +229,72 @@ test("slow Bilibili refreshes are still captured after ten seconds", async () =>
 	assert.match(env.saves[0], /\/video\/slow/);
 });
 
-test("refresh click does not save the unstable pre-refresh DOM", () => {
+test("rapid clicks retain a feed visible only before the next click", () => {
+	const env = captureFixture();
+	const link = env.document.querySelector(".feed-card a");
+	env.capture.captureBeforeRefresh();
+	env.capture.startFeedCapture();
+	link.setAttribute("href", "/video/middle");
+	env.advance(100);
+	env.capture.captureBeforeRefresh();
+	env.capture.startFeedCapture();
+	link.setAttribute("href", "/video/final");
+	env.advance(1000);
+	assert.equal(env.saves.length, 3);
+	assert.match(env.saves[0], /\/video\/live1/);
+	assert.match(env.saves[1], /\/video\/middle/);
+	assert.match(env.saves[2], /\/video\/final/);
+	assert.equal(env.timers.size, 0);
+});
+
+test("two rapid clicks retain both later feeds when the first appears late", () => {
+	const env = captureFixture();
+	const link = env.document.querySelector(".feed-card a");
+	env.capture.captureBeforeRefresh();
+	env.capture.startFeedCapture();
+	env.advance(100);
+	env.capture.captureBeforeRefresh();
+	env.capture.startFeedCapture();
+	link.setAttribute("href", "/video/middle");
+	env.advance(1000);
+	assert.match(env.saves.at(-1), /\/video\/middle/);
+	assert.ok(env.timers.size > 0, "the second refresh is still pending");
+	link.setAttribute("href", "/video/final");
+	env.advance(1000);
+	assert.match(env.saves.at(-1), /\/video\/final/);
+	assert.equal(env.timers.size, 0);
+});
+
+test("refresh from history does not append the stale native feed", () => {
+	const env = captureFixture();
+	env.navigation.replaceFeeds({
+		html: '<div class="feed-card"><a href="/video/old">Old</a></div>',
+	});
+	env.capture.captureBeforeRefresh();
+	assert.equal(env.saves.length, 0);
+});
+
+test("a rapid second refresh saves a new native feed beneath history", () => {
+	const env = captureFixture();
+	env.capture.captureBeforeRefresh();
+	env.capture.startFeedCapture();
+	env.navigation.replaceFeeds({
+		html: '<div class="feed-card"><a href="/video/old">Old</a></div>',
+	});
+	env.document.querySelector(".feed-card a").setAttribute("href", "/video/middle");
+	env.capture.captureBeforeRefresh();
+	assert.equal(env.saves.length, 2);
+	assert.match(env.saves[1], /\/video\/middle/);
+	assert.doesNotMatch(env.saves[1], /\/video\/old/);
+});
+
+test("refresh click captures the outgoing feed before Bilibili replaces it", () => {
 	const env = fixture();
 	const refreshButton = env.document.createElement("button");
 	refreshButton.className = "primary-btn roll-btn";
 	refreshButton.textContent = "换一换";
 	env.document.body.appendChild(refreshButton);
-	let baselineSaves = 0;
+	let outgoingCaptures = 0;
 	let starts = 0;
 	let stops = 0;
 	let exits = 0;
@@ -243,6 +302,9 @@ test("refresh click does not save the unstable pre-refresh DOM", () => {
 	const ui = env.load("controls", {
 		"./feed": env.feed,
 		"./capture": {
+			captureBeforeRefresh: () => {
+				outgoingCaptures += 1;
+			},
 			startFeedCapture: () => {
 				starts += 1;
 			},
@@ -258,22 +320,17 @@ test("refresh click does not save the unstable pre-refresh DOM", () => {
 				exits += 1;
 			},
 		},
-		"./storage": {
-			saveFeedItems: () => {
-				baselineSaves += 1;
-				return Promise.resolve();
-			},
-		},
 		"./debug": { addDebugButton: () => {}, trace: () => {}, traceHtml: () => {} },
 	});
 	const cleanup = ui.setupUI();
 	refreshButton.dispatchEvent(new env.context.Event("click", { bubbles: true }));
 	assert.equal(starts, 2, "startup capture plus one refresh capture");
-	assert.equal(stops, 1);
+	assert.equal(outgoingCaptures, 1);
+	assert.equal(stops, 0, "a click must keep earlier refreshes pending");
 	assert.equal(exits, 1, "refresh exposes Bilibili's live loading state");
-	assert.equal(baselineSaves, 0);
 	assert.equal(refreshButton.style.cursor, "pointer");
 	cleanup();
+	assert.equal(stops, 1);
 });
 
 test("diagnostic logs survive new page sessions, stay bounded and production is silent", async () => {
@@ -474,6 +531,20 @@ test("restored cards follow the live card background across theme switches", () 
 	navigation.exitHistoryView();
 });
 
+test("restored cards follow an opaque ancestor when live cards are transparent", () => {
+	const { document, navigation } = fixture();
+	document.body.style.backgroundColor = "rgb(35, 36, 37)";
+	navigation.replaceFeeds({
+		html: '<div class="feed-card">History one</div>',
+	});
+	const overlay = document.querySelector("[data-bili-feed-history-card]");
+	assert.equal(overlay.style.backgroundColor, "rgb(35, 36, 37)");
+	document.body.style.backgroundColor = "rgb(255, 255, 255)";
+	navigation.updateHistoryCardStyles();
+	assert.equal(overlay.style.backgroundColor, "rgb(255, 255, 255)");
+	navigation.exitHistoryView();
+});
+
 test("alternating visible batches exclude the hidden restored feed", () => {
 	const { document, feed } = fixture();
 	const cards = [...document.querySelectorAll(".feed-card")];
@@ -500,6 +571,49 @@ test("logged-out Bilibili login cards have a stable feed identity", () => {
 	const identity = feed.feedIdentity(feed.getLiveFeedCards());
 	assert.match(identity, /www\.bilibili\.com\/guest-login-card/);
 	assert.match(identity, /www\.bilibili\.com\/video\/live1/);
+});
+
+test("a linkless ad placeholder does not invalidate the rest of a feed", () => {
+	const env = captureFixture();
+	const container = env.document.querySelector(".container");
+	const placeholder = env.document.createElement("div");
+	placeholder.className = "feed-card";
+	container.appendChild(placeholder);
+	const cards = env.feed.getLiveFeedCards();
+	const signature = env.feed.feedIdentity(cards);
+	assert.match(signature, /\/video\/live1/);
+	assert.equal(
+		env.feed.snapshotSignature(env.feed.serializeFeedCards(cards)),
+		signature,
+	);
+	assert.equal(env.feed.feedIdentity([placeholder]), "");
+	env.capture.startFeedCapture();
+	env.document.querySelector(".feed-card a").setAttribute("href", "/video/new");
+	env.advance(1000);
+	assert.equal(env.saves.length, 1);
+	assert.match(env.saves[0], /\/video\/new/);
+});
+
+test("linkless placeholders still allow storing and navigating feed history", async () => {
+	const env = fixture();
+	let value = { extensionVersion: "1.0.2", items: [], currentIndex: -1 };
+	env.context.storage = {
+		defineItem: () => ({
+			getValue: async () => structuredClone(value),
+			setValue: async (next) => {
+				value = structuredClone(next);
+			},
+		}),
+	};
+	const storage = env.load("storage", { "./feed": env.feed });
+	const placeholder = env.document.createElement("div");
+	placeholder.className = "feed-card";
+	env.document.querySelector(".container").appendChild(placeholder);
+	await storage.saveFeedItems();
+	env.document.querySelector(".feed-card a").setAttribute("href", "/video/new");
+	await storage.saveFeedItems();
+	assert.equal(value.items.length, 2);
+	assert.match((await storage.navigateToRelative(-1)).html, /\/video\/live1/);
 });
 
 test("extension version changes clear ephemeral history for existing users", async () => {

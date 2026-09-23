@@ -1,4 +1,8 @@
-import { startFeedCapture, stopFeedCapture } from "./capture";
+import {
+  captureBeforeRefresh,
+  startFeedCapture,
+  stopFeedCapture,
+} from "./capture";
 import {
   navigateToPreviousFeed,
   navigateToNextFeed,
@@ -148,7 +152,7 @@ function clearNavigationRetry(): void {
   buttonMountRetryTimer = undefined;
 }
 
-// Capture the post-refresh feed when Bilibili's "换一换" is clicked.
+// Capture the outgoing feed, then watch for Bilibili's replacement.
 
 function installRefreshClickHandler(): void {
   if (refreshClickHandlerInstalled) return;
@@ -170,9 +174,9 @@ function handleRefreshClick(event: MouseEvent): void {
     document.querySelector(`[${historyHostAttribute}]`) !== null;
   trace("refresh.click", { historyVisible });
   traceHtml("refresh.before");
+  captureBeforeRefresh();
   // Do not hide Bilibili's loading state behind the selected history snapshot.
   exitHistoryView();
-  stopFeedCapture();
   startFeedCapture();
 }
 

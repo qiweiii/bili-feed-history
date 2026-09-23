@@ -1,5 +1,5 @@
 import { getFeedCards, isHomeFeedPage } from "./bilibili";
-import { feedIdentity, getLiveFeedCards } from "./feed";
+import { feedIdentity, getLiveFeedCards, historyHostAttribute } from "./feed";
 import { getFeedHistory, saveFeedItems } from "./storage";
 import {
   exitHistoryView,
@@ -22,6 +22,7 @@ let expectedCount = 0;
 let initialCapture = false;
 let viewRevision = 0;
 let restoreLatest = false;
+let pendingRefreshes = 0;
 
 function getStartupCaptureMode(): {
   navigationType: string;
@@ -51,8 +52,48 @@ function readFeed(): { signature: string; count: number; total: number } {
   };
 }
 
+// The click listener runs before Bilibili replaces the currently visible feed.
+// Save it now, since a rapid second click can replace it before polling settles.
+export function captureBeforeRefresh(): void {
+  if (!isHomeFeedPage()) return;
+  const wasInitial = pollTimer !== undefined && initialCapture;
+  if (wasInitial) stopFeedCapture();
+
+  const feed = readFeed();
+  const historyVisible =
+    document.querySelector(`[${historyHostAttribute}]`) !== null;
+  const complete =
+    feed.signature !== "" &&
+    (pollTimer === undefined || feed.count >= expectedCount);
+  const save =
+    complete &&
+    !(wasInitial && restoreLatest) &&
+    (!historyVisible || (pollTimer !== undefined && feed.signature !== baseline));
+  if (save) {
+    void saveFeedItems().catch((error) => {
+      console.error("Could not save Bilibili feed history", error);
+    });
+  }
+
+  if (pollTimer !== undefined) {
+    if (complete && feed.signature !== baseline) {
+      baseline = feed.signature;
+      expectedCount = feed.count;
+      candidate = "";
+      pendingRefreshes = Math.max(0, pendingRefreshes - 1);
+    }
+    ++pendingRefreshes;
+  }
+  trace("capture.beforeRefresh", {
+    ...feed,
+    queued: save,
+    pendingRefreshes,
+  });
+}
+
 export function startFeedCapture(initial = false): void {
   if (!isHomeFeedPage()) return;
+  if (!initial && initialCapture && pollTimer !== undefined) stopFeedCapture();
   const startupMode = initial
     ? getStartupCaptureMode()
     : { navigationType: "not-startup", restoreLatest: false };
@@ -66,6 +107,7 @@ export function startFeedCapture(initial = false): void {
   // Repeated clicks extend the pending request without forgetting its baseline.
   if (pollTimer !== undefined) {
     deadline = Date.now() + captureTimeoutMs;
+    viewRevision = getViewRevision();
     return;
   }
   const feed = readFeed();
@@ -75,6 +117,7 @@ export function startFeedCapture(initial = false): void {
   baseline = initial ? "" : feed.signature;
   expectedCount = feed.count;
   candidate = "";
+  pendingRefreshes = initial ? 0 : 1;
   deadline = Date.now() + captureTimeoutMs;
   pollTimer = window.setTimeout(poll, pollIntervalMs);
 }
@@ -88,6 +131,7 @@ function poll(): void {
       baseline,
       candidate,
       expectedCount,
+      pendingRefreshes,
     });
     traceHtml("capture.timeout");
     stopFeedCapture();
@@ -105,16 +149,21 @@ function poll(): void {
     candidate = feed.signature;
     candidateSince = Date.now();
   } else if (Date.now() - candidateSince >= settleMs) {
-    trace("capture.settled", feed);
+    trace("capture.settled", { ...feed, pendingRefreshes });
     traceHtml("capture.settled");
-    stopFeedCapture();
-    void completeCapture(
-      initialCapture,
-      viewRevision,
-      restoreLatest,
-    ).catch((error) => {
+    const initial = initialCapture;
+    const revision = viewRevision;
+    const restore = restoreLatest;
+    baseline = feed.signature;
+    expectedCount = feed.count;
+    candidate = "";
+    if (initial || --pendingRefreshes <= 0) stopFeedCapture();
+    void completeCapture(initial, revision, restore).catch((error) => {
       console.error("Could not save Bilibili feed history", error);
     });
+    if (!initial && pendingRefreshes > 0) {
+      pollTimer = window.setTimeout(poll, pollIntervalMs);
+    }
     return;
   }
   pollTimer = window.setTimeout(poll, pollIntervalMs);
@@ -137,4 +186,5 @@ export function stopFeedCapture(): void {
   clearTimeout(pollTimer);
   pollTimer = undefined;
   candidate = "";
+  pendingRefreshes = 0;
 }

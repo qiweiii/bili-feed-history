@@ -2,7 +2,7 @@ import { getFeedCards } from "./bilibili";
 import { historyCardAttribute, historyHostAttribute } from "./feed";
 
 const enabled = import.meta.env.DEV || import.meta.env.MODE === "diagnostic";
-const diagnosticRevision = "navigate-feed-13";
+const diagnosticRevision = "rapid-refresh-14";
 const prefix = "biliFeedDebug:";
 const session = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
 const events: object[] = [];

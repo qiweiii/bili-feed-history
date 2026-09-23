@@ -42,9 +42,9 @@ export function feedIdentity(cards: HTMLElement[]): string {
       return "";
     }
   });
-  return signatures.length && signatures.every(Boolean)
-    ? signatures.join("\u001f")
-    : "";
+  // Ad blockers can leave empty .feed-card placeholders. They are not feed
+  // identities, but the remaining linked cards still identify the batch.
+  return signatures.filter(Boolean).join("\u001f");
 }
 
 export function snapshotSignature(html: string): string {
