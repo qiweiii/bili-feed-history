@@ -112,7 +112,7 @@ export function saveFeedItems(initial = false): Promise<void> {
 			timestamp,
 		};
 		const allItems = [...history.items, historyItem];
-		const retainedItems = allItems.slice(-10);
+		const retainedItems = allItems.slice(-15);
 		const selectedItem = history.items[history.currentIndex];
 		// A completed background refresh must not move the history being viewed.
 		// Retain that snapshot even when adding a feed reaches the history limit.

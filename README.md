@@ -4,7 +4,7 @@ Back and forward buttons for recommendations on the
 [Bilibili homepage](https://www.bilibili.com/). Use 换一换 as usual, then
 revisit the sets you just saw.
 
-The extension keeps up to ten sets locally. History is temporary and clears
+The extension keeps up to fifteen sets locally. History is temporary and clears
 when the extension is updated or reloaded.
 
 ## Build from source

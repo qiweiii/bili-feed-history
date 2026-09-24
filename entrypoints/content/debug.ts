@@ -64,6 +64,7 @@ export function trace(event: string, data: object): void {
 export function addDebugButton(container: HTMLElement): void {
   if (!enabled) return;
   const button = document.createElement("button");
+  button.id = "bili-feed-export-logs";
   button.textContent = "Export logs";
   button.title =
     "Download local diagnostic events, including previous browser sessions";

@@ -167,10 +167,13 @@ test("refresh completion preserves selected history and forward reaches the new 
 		"./storage": storage,
 	});
 	const live = env.feed.getLiveFeedCards()[0];
-	for (let i = 0; i < 10; i++) {
+	for (let i = 0; i < 16; i++) {
 		live.innerHTML = `<a href="/video/feed${i}">Feed ${i}</a>`;
 		await storage.saveFeedItems();
 	}
+	assert.equal(value.items.length, 15);
+	assert.match(value.items[0].html, /\/video\/feed1/);
+	assert.match(value.items[14].html, /\/video\/feed15/);
 	const selected = await storage.navigateToIndex(0);
 	navigation.replaceFeeds(selected);
 	await storage.saveFeedItems();
@@ -182,16 +185,16 @@ test("refresh completion preserves selected history and forward reaches the new 
 	const nativeLink = live.querySelector("a");
 	nativeLink.setAttribute("href", "/video/new");
 	await storage.saveFeedItems();
-	assert.equal(value.items.length, 10);
+	assert.equal(value.items.length, 15);
 	assert.equal(value.items[value.currentIndex].id, selected.id);
 	assert.equal(
 		env.document
 			.querySelector("[data-bili-feed-history-card] a")
 			.getAttribute("href"),
-		"/video/feed0",
+		"/video/feed1",
 	);
-	assert.match((await storage.navigateToRelative(1)).html, /\/video\/feed2/);
-	await storage.navigateToIndex(8);
+	assert.match((await storage.navigateToRelative(1)).html, /\/video\/feed3/);
+	await storage.navigateToIndex(13);
 	const latest = await storage.navigateToRelative(1);
 	assert.match(latest.html, /\/video\/new/);
 	navigation.replaceFeeds(latest);
@@ -331,6 +334,71 @@ test("refresh click captures the outgoing feed before Bilibili replaces it", () 
 	assert.equal(refreshButton.style.cursor, "pointer");
 	cleanup();
 	assert.equal(stops, 1);
+});
+
+test("history controls follow refresh layout and inherit its transparency", () => {
+	const env = fixture();
+	const feed = env.document.createElement("div");
+	const refreshParent = env.document.createElement("div");
+	const refreshButton = env.document.createElement("button");
+	refreshButton.textContent = "换一换";
+	refreshButton.style.backgroundColor = "rgb(255, 255, 255)";
+	refreshButton.style.color = "rgb(0, 0, 0)";
+	refreshParent.style.opacity = "0.8";
+	refreshParent.appendChild(refreshButton);
+	feed.appendChild(refreshParent);
+	env.document.body.appendChild(feed);
+	feed.getBoundingClientRect = () => ({ top: 100 });
+	refreshParent.getBoundingClientRect = () => ({ top: 100 });
+	let refreshTop = 100;
+	refreshButton.getBoundingClientRect = () => ({ top: refreshTop });
+	const ui = env.load("controls", {
+		"./feed": env.feed,
+		"./capture": {},
+		"./navigation": { updateButtonStates: () => {} },
+		"./debug": {
+			addDebugButton: (container) => {
+				const button = env.document.createElement("button");
+				button.id = "bili-feed-export-logs";
+				button.textContent = "Export logs";
+				container.appendChild(button);
+			},
+		},
+	});
+
+	ui.addNavigationButtons();
+	const arrows = env.document.getElementById("bili-feed-history-nav");
+	assert.equal(arrows.parentElement, refreshParent);
+	assert.equal(arrows.style.left, "50%");
+	assert.equal(arrows.style.transform, "translateX(-50%)");
+	assert.equal(arrows.style.alignItems, "center");
+	assert.equal(arrows.style.top, "calc(100% + 8px)");
+	assert.equal(arrows.children[0].id, "bili-feed-prev");
+	assert.equal(arrows.children[1].id, "bili-feed-next");
+	assert.equal(arrows.children[2].id, "bili-feed-export-logs");
+	assert.equal(arrows.children[0].style.backgroundColor, "rgb(255, 255, 255)");
+
+	refreshButton.style.backgroundColor = "rgb(35, 36, 37)";
+	refreshButton.style.color = "rgb(230, 230, 230)";
+	ui.updateButtonStyles();
+	for (const button of [arrows.children[0], arrows.children[1]]) {
+		assert.equal(button.style.backgroundColor, "rgb(35, 36, 37)");
+		assert.equal(button.style.color, "rgb(230, 230, 230)");
+	}
+
+	refreshTop = 330;
+	arrows.getBoundingClientRect = () => ({ height: 130 });
+	ui.updateButtonStyles();
+	assert.equal(arrows.style.top, "auto");
+	assert.equal(arrows.style.bottom, "calc(100% + 8px)");
+	assert.equal(arrows.children[0].id, "bili-feed-export-logs");
+	assert.equal(arrows.children[1].id, "bili-feed-prev");
+	assert.equal(arrows.children[2].id, "bili-feed-next");
+
+	refreshTop = 100;
+	ui.updateButtonStyles();
+	assert.equal(arrows.style.top, "calc(100% + 8px)");
+	assert.equal(arrows.children[2].id, "bili-feed-export-logs");
 });
 
 test("diagnostic logs survive new page sessions, stay bounded and production is silent", async () => {
@@ -510,6 +578,32 @@ test("history preserves the live grid, carousel, and original card nodes", () =>
 	navigation.exitHistoryView();
 	assert.equal(container.innerHTML, originalMarkup);
 	assert.equal(document.head.children.length, 0);
+});
+
+test("history cards stay behind the refresh and navigation controls", () => {
+	const { document, navigation } = fixture();
+	const refreshParent = document.createElement("div");
+	refreshParent.style.zIndex = "2";
+	const refreshButton = document.createElement("button");
+	refreshButton.textContent = "换一换";
+	const arrows = document.createElement("div");
+	arrows.id = "bili-feed-history-nav";
+	refreshParent.appendChild(refreshButton);
+	refreshParent.appendChild(arrows);
+	document.body.appendChild(refreshParent);
+
+	navigation.replaceFeeds({ html: '<div class="feed-card">History</div>' });
+	assert.equal(document.querySelector("[data-bili-feed-history-host]").style.zIndex, "100");
+	assert.equal(refreshParent.style.zIndex, "101");
+	assert.equal(arrows.parentElement, refreshParent);
+
+	navigation.exitHistoryView();
+	assert.equal(refreshParent.style.zIndex, "2");
+
+	refreshParent.style.removeProperty("z-index");
+	navigation.replaceFeeds({ html: '<div class="feed-card">History again</div>' });
+	navigation.exitHistoryView();
+	assert.equal(refreshParent.style.getPropertyValue("z-index") ?? "", "");
 });
 
 test("restored cards follow the live card background across theme switches", () => {

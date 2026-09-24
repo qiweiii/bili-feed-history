@@ -1,4 +1,4 @@
-import { getFeedCards, isHomeFeedPage } from "./bilibili";
+import { findRefreshButton, getFeedCards, isHomeFeedPage } from "./bilibili";
 import { getFeedHistory, navigateToIndex, navigateToRelative } from "./storage";
 import {
   feedIdentity,
@@ -11,7 +11,13 @@ import type { FeedHistoryItem } from "./types";
 import { trace, traceHtml } from "./debug";
 
 const historyCardPairs: { live: HTMLElement; overlay: HTMLElement }[] = [];
+const historyLayerZIndex = 100;
 let historyLayer: HTMLElement | null = null;
+let refreshParentStyle: {
+  element: HTMLElement;
+  zIndex: string;
+  priority: string;
+} | null = null;
 let viewRevision = 0;
 
 // Overlay cards cover live cards, so they must be opaque or the live card
@@ -99,8 +105,22 @@ export function replaceFeeds(historyItem: FeedHistoryItem): void {
   historyLayer.style.inset = "0";
   historyLayer.style.width = "0";
   historyLayer.style.height = "0";
-  historyLayer.style.zIndex = "100";
+  historyLayer.style.zIndex = String(historyLayerZIndex);
   historyLayer.style.pointerEvents = "none";
+
+  const refreshParent = findRefreshButton()?.parentElement;
+  if (refreshParent) {
+    refreshParentStyle = {
+      element: refreshParent,
+      zIndex: refreshParent.style.getPropertyValue("z-index"),
+      priority: refreshParent.style.getPropertyPriority?.("z-index") ?? "",
+    };
+    refreshParent.style.setProperty(
+      "z-index",
+      String(historyLayerZIndex + 1),
+      "important",
+    );
+  }
 
   liveCards.forEach((live, index) => {
     const overlay = snapshotCards[index];
@@ -138,6 +158,15 @@ export function exitHistoryView(): void {
   historyCardPairs.splice(0);
   historyLayer?.remove();
   historyLayer = null;
+  if (refreshParentStyle) {
+    const { element, zIndex, priority } = refreshParentStyle;
+    if (zIndex) {
+      element.style.setProperty("z-index", zIndex, priority);
+    } else {
+      element.style.removeProperty("z-index");
+    }
+    refreshParentStyle = null;
+  }
 }
 
 // Update navigation button states

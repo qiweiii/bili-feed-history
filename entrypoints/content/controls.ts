@@ -34,6 +34,7 @@ let refreshStyleSnapshot: ButtonStyleSnapshot | null = null;
 // Wire click handlers, storage watcher and initial capture; returns disposer.
 export function setupUI(): () => void {
   installRefreshClickHandler();
+  window.addEventListener("resize", updateButtonStyles);
 
   const unwatch = storage.watch<FeedHistory>(
     "local:biliFeedHistory",
@@ -53,6 +54,7 @@ export function setupUI(): () => void {
   return () => {
     unwatch();
     document.removeEventListener("click", handleRefreshClick, true);
+    window.removeEventListener("resize", updateButtonStyles);
     refreshClickHandlerInstalled = false;
     clearNavigationRetry();
     stopFeedCapture();
@@ -64,7 +66,7 @@ export function setupUI(): () => void {
   };
 }
 
-// Add history arrows below Bilibili's "换一换" button; retries on slow pages.
+// Add history arrows around Bilibili's "换一换" button; retries on slow pages.
 export function addNavigationButtons(retries = 10): void {
   // The refresh button only exists on the home feed.
   if (!isHomeFeedPage()) {
@@ -95,12 +97,12 @@ export function addNavigationButtons(retries = 10): void {
   const navContainer = document.createElement("div");
   navContainer.id = "bili-feed-history-nav";
   navContainer.style.position = "absolute";
-  navContainer.style.top = "105px";
-  navContainer.style.left = "100%";
-  navContainer.style.transform = "translate(10px)";
+  navContainer.style.left = "50%";
+  navContainer.style.transform = "translateX(-50%)";
   navContainer.style.zIndex = "2";
   navContainer.style.display = "flex";
   navContainer.style.flexDirection = "column";
+  navContainer.style.alignItems = "center";
   navContainer.style.gap = "8px";
 
   const prevButton = document.createElement("button");
@@ -123,10 +125,7 @@ export function addNavigationButtons(retries = 10): void {
   navContainer.appendChild(nextButton);
   addDebugButton(navContainer);
 
-  // Attach beside the refresh button's row; absolute-positioned from there.
-  const grandParent = refreshParent.parentElement;
-  grandParent.style.position = grandParent.style.position || "relative";
-  grandParent.appendChild(navContainer);
+  refreshParent.appendChild(navContainer);
 
   installRefreshClickHandler();
 
@@ -203,6 +202,7 @@ export function updateButtonStyles(): void {
   if (!refreshButton || !prevButton || !nextButton) return;
 
   attachRefreshStyleRefresh(refreshButton);
+  positionNavigationButtons(refreshButton);
   refreshButton.style.setProperty("cursor", "pointer", "important");
   const computedStyle = getComputedStyle(refreshButton);
   if (!isTransientRefreshState(refreshButton)) {
@@ -219,6 +219,28 @@ export function updateButtonStyles(): void {
 
   applyRefreshStyles(styleSnapshot, prevButton);
   applyRefreshStyles(styleSnapshot, nextButton);
+}
+
+function positionNavigationButtons(refreshButton: HTMLButtonElement): void {
+  const navContainer = document.getElementById("bili-feed-history-nav");
+  const parent = navContainer?.parentElement;
+  const feed = parent?.parentElement;
+  if (!navContainer || !parent || !feed) return;
+
+  const feedRect = feed.getBoundingClientRect();
+  const spaceAbove = refreshButton.getBoundingClientRect().top - feedRect.top;
+  const placeAbove = spaceAbove >= navContainer.getBoundingClientRect().height + 8;
+  navContainer.style.top = placeAbove ? "auto" : "calc(100% + 8px)";
+  navContainer.style.bottom = placeAbove ? "calc(100% + 8px)" : "auto";
+
+  const debugButton = document.getElementById("bili-feed-export-logs");
+  if (debugButton && debugButton.parentElement === navContainer) {
+    if (placeAbove && debugButton !== navContainer.firstElementChild) {
+      navContainer.prepend(debugButton);
+    } else if (!placeAbove && debugButton !== navContainer.lastElementChild) {
+      navContainer.appendChild(debugButton);
+    }
+  }
 }
 
 function attachRefreshStyleRefresh(refreshButton: HTMLButtonElement): void {
