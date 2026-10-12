@@ -399,6 +399,39 @@ test("history controls follow refresh layout and inherit its transparency", () =
 	ui.updateButtonStyles();
 	assert.equal(arrows.style.top, "calc(100% + 8px)");
 	assert.equal(arrows.children[2].id, "bili-feed-export-logs");
+
+	const replacementParent = env.document.createElement("div");
+	refreshParent.removeChild(refreshButton);
+	replacementParent.appendChild(refreshButton);
+	feed.appendChild(replacementParent);
+	ui.addNavigationButtons();
+	assert.equal(env.document.getElementById("bili-feed-history-nav").parentElement, replacementParent);
+	assert.equal(env.document.querySelectorAll("#bili-feed-history-nav").length, 1);
+});
+
+test("current roll button and whitespace-separated labels are recognized", () => {
+	const env = fixture();
+	env.document.body.innerHTML = '<div class="feed-roll-btn"><button class="roll-btn"><svg></svg></button></div>';
+	const button = env.document.querySelector("button");
+	assert.equal(env.adapter.findRefreshButton(), button);
+	assert.equal(env.adapter.isRefreshButton(button), true);
+	button.className = "";
+	button.textContent = "换\n 一\n 换";
+	assert.equal(env.adapter.findRefreshButton(), button);
+	assert.equal(env.adapter.isRefreshButton(button), true);
+});
+
+test("content script covers query-string homepages and SPA entry routes", () => {
+	const source = readFileSync(`${__dirname}/../entrypoints/content/index.ts`, "utf8");
+	let definition;
+	const output = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS } }).outputText;
+	vm.runInNewContext(output, {
+		exports: {}, require: () => ({}), defineContentScript: value => { definition = value; },
+	});
+	const pattern = definition.matches[0];
+	const matcher = new RegExp("^" + pattern.replace(/[.+?^${}()|[\]\\]/g, "\\$&").replaceAll("*", ".*") + "$");
+	assert.ok(matcher.test("https://www.bilibili.com/?spm_id_from=333.1007"));
+	assert.ok(matcher.test("https://www.bilibili.com/video/BV123/"));
 });
 
 test("diagnostic logs survive new page sessions, stay bounded and production is silent", async () => {

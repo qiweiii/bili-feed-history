@@ -5,7 +5,9 @@ import { setupMutationObserver, setupThemeObserver } from "./observer";
 import { trace } from "./debug";
 
 export default defineContentScript({
-  matches: ["https://www.bilibili.com/"],
+  // Inject on all routes so WXT can observe SPA returns to the home feed.
+  // Chrome match patterns include the query string in the matched path.
+  matches: ["https://www.bilibili.com/*"],
   async main(ctx) {
     ctx.addEventListener(document, "visibilitychange", () => {
       trace("page.visibility", { visibility: document.visibilityState });

@@ -1,7 +1,7 @@
 const bilibiliSelectors = {
   feedCard: ".feed-card",
   loginCard: ".bili-login-card",
-  refreshButton: "button.primary-btn.roll-btn",
+  refreshButton: ".feed-roll-btn button.roll-btn, button.primary-btn.roll-btn",
 } as const;
 
 const refreshButtonLabel = "换一换";
@@ -24,7 +24,7 @@ export function isLoginCard(card: HTMLElement): boolean {
 
 export function findRefreshButton(): HTMLButtonElement | null {
   const textButton = Array.from(document.querySelectorAll("button")).find(
-    (button) => button.textContent?.includes(refreshButtonLabel),
+    (button) => hasRefreshLabel(button),
   );
   if (textButton) return textButton as HTMLButtonElement;
 
@@ -35,7 +35,11 @@ export function findRefreshButton(): HTMLButtonElement | null {
 
 export function isRefreshButton(button: HTMLButtonElement): boolean {
   return (
-    button.textContent?.includes(refreshButtonLabel) === true ||
+    hasRefreshLabel(button) ||
     button.matches(bilibiliSelectors.refreshButton)
   );
+}
+
+function hasRefreshLabel(button: HTMLButtonElement): boolean {
+  return (button.textContent ?? "").replace(/\s+/g, "").includes(refreshButtonLabel);
 }

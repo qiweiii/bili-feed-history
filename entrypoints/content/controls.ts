@@ -87,7 +87,10 @@ export function addNavigationButtons(retries = 10): void {
 
   clearNavigationRetry();
 
-  if (document.getElementById("bili-feed-history-nav")) return;
+  const existingNav = document.getElementById("bili-feed-history-nav");
+  if (existingNav?.parentElement === refreshButton.parentElement) return;
+  // Vue can replace the refresh control while leaving its old wrapper mounted.
+  existingNav?.remove();
 
   const refreshParent = refreshButton.parentElement;
   if (!refreshParent || !refreshParent.parentElement) {
