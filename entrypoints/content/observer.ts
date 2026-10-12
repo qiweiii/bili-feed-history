@@ -18,11 +18,8 @@ export function setupMutationObserver(): () => void {
     window.requestAnimationFrame(() => {
       pending = false;
       if (disposed) return;
-      if (document.getElementById("bili-feed-history-nav")) {
-        updateButtonStyles();
-      } else {
-        addNavigationButtons();
-      }
+      addNavigationButtons();
+      updateButtonStyles();
     });
   });
 
